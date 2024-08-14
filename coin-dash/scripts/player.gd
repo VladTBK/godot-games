@@ -1,28 +1,46 @@
 extends CharacterBody2D
 
+signal pickup
+signal hurt
+@export var speed: int = 250
+var screensize: Vector2 = Vector2(480, 720)
+var animated_sprite: AnimatedSprite2D
 
-const SPEED = 300.0
-const JUMP_VELOCITY = -400.0
 
-# Get the gravity from the project settings to be synced with RigidBody nodes.
-var gravity = ProjectSettings.get_setting("physics/2d/default_gravity")
+func _ready() -> void:
+	animated_sprite = $AnimatedSprite2D
 
 
-func _physics_process(delta):
-	# Add the gravity.
-	if not is_on_floor():
-		velocity.y += gravity * delta
+func _physics_process(_delta: float) -> void:
+	velocity = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	position += _delta * speed * velocity
+	position.x = clamp(position.x, 0, screensize.x)
+	position.y = clamp(position.y, 0, screensize.y)
+	animation_change()
 
-	# Handle jump.
-	if Input.is_action_just_pressed("ui_accept") and is_on_floor():
-		velocity.y = JUMP_VELOCITY
 
-	# Get the input direction and handle the movement/deceleration.
-	# As good practice, you should replace UI actions with custom gameplay actions.
-	var direction = Input.get_axis("ui_left", "ui_right")
-	if direction:
-		velocity.x = direction * SPEED
+func _on_area_2d_area_entered(_area: Area2D) -> void:
+	if _area.is_in_group("coins"):
+		_area.get_parent().pickup()
+		pickup.emit()
+	if _area.is_in_group("obstacles"):
+		hurt.emit()
+		die()
+
+
+func animation_change() -> void:
+	if velocity.length() > 0:
+		animated_sprite.animation = "run"
 	else:
-		velocity.x = move_toward(velocity.x, 0, SPEED)
+		animated_sprite.animation = "idle"
 
-	move_and_slide()
+	animated_sprite.flip_h = velocity.x < 0
+
+
+func start() -> void:
+	animated_sprite.animation = "run"
+	position = 0.5 * screensize
+
+
+func die() -> void:
+	animated_sprite.animation = "hurt"
